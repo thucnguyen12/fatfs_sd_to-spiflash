@@ -30,6 +30,17 @@
  extern "C" {
 #endif
 
+
+// HuyTV
+
+ #define CFG_TUSB_MCU                 OPT_MCU_STM32F4
+ #define CFG_TUSB_OS                  OPT_OS_NONE
+ #define BOARD_DEVICE_RHPORT_SPEED    OPT_MODE_FULL_SPEED
+ #define BOARD_DEVICE_RHPORT_NUM      0
+ #define CFG_TUSB_RHPORT_MODE         (OPT_MODE_DEVICE | OPT_MODE_FULL_SPEED)
+// end
+
+
 //--------------------------------------------------------------------
 // COMMON CONFIGURATION
 //--------------------------------------------------------------------
@@ -65,7 +76,7 @@
 #endif
 
 // This examples use FreeRTOS
-#define CFG_TUSB_OS               OPT_OS_FREERTOS
+//#define CFG_TUSB_OS               OPT_OS_FREERTOS
 
 // Espressif IDF requires "freertos/" prefix in include path
 #if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3)
@@ -116,7 +127,6 @@
 
 // MSC Buffer size of Device Mass storage
 #define CFG_TUD_MSC_EP_BUFSIZE   512
-
 
 
 #ifdef __cplusplus
