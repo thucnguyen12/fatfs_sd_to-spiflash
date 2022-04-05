@@ -26,6 +26,7 @@
 #include "app_spi_flash.h"
 #include "freertos.h"
 #include "task.h"
+#include "queue.h"
 #include "spi.h"
 #include "app_drv_spi.h"
 /* USER CODE END INCLUDE */
@@ -36,7 +37,8 @@
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-
+#define SPI_CMD_READ            0
+#define SPI_CMD_WRITE           1
 /* USER CODE END PV */
 
 /** @addtogroup STM32_USB_OTG_DEVICE_LIBRARY
@@ -121,6 +123,8 @@ const int8_t STORAGE_Inquirydata_FS[] = {/* 36 */
 //uint8_t buffer[STORAGE_BLK_NBR*STORAGE_BLK_SIZ];
 static app_flash_drv_t m_spi_flash;
 static void spi_flash_delay(void *arg, uint32_t ms);
+static void task_spi_flash_cmd(void *arg);
+static QueueHandle_t m_cmd_queue;
 /* USER CODE END PRIVATE_VARIABLES */
 
 /**
@@ -172,6 +176,11 @@ void usbd_storage_flash_initialize(void)
     {
         m_spi_flash.error = true;
         DEBUG_ERROR("SPI flash error\r\n");
+    }
+    
+    if (!m_cmd_queue)
+    {
+        m_cmd_queue = xQueueCreate(4, sizeof(uint8_t));
     }
 }
 /* USER CODE END PRIVATE_FUNCTIONS_DECLARATION */
@@ -264,12 +273,13 @@ int8_t STORAGE_IsWriteProtected_FS(uint8_t lun)
 int8_t STORAGE_Read_FS(uint8_t lun, uint8_t *buf, uint32_t blk_addr, uint16_t blk_len)
 {
   /* USER CODE BEGIN 6 */
+    
   UNUSED(lun);
   UNUSED(buf);
   UNUSED(blk_addr);
   UNUSED(blk_len);
-    app_spi_flash_read_bytes(&m_spi_flash, blk_addr*STORAGE_BLK_SIZ, buf, blk_len*STORAGE_BLK_SIZ);
     DEBUG_INFO("%s read at block addr %u, len %u\r\n", __FUNCTION__, blk_addr, blk_len);
+    app_spi_flash_read_bytes(&m_spi_flash, blk_addr*STORAGE_BLK_SIZ, buf, blk_len*STORAGE_BLK_SIZ);
 //    memcpy(buf, &buffer[blk_addr*STORAGE_BLK_SIZ], blk_len*STORAGE_BLK_SIZ);
   return (USBD_OK);
   /* USER CODE END 6 */
@@ -292,7 +302,6 @@ int8_t STORAGE_Write_FS(uint8_t lun, uint8_t *buf, uint32_t blk_addr, uint16_t b
   UNUSED(blk_len);
     DEBUG_INFO("%s write at block addr %u, len %u\r\n", __FUNCTION__, blk_addr, blk_len);
     // memcpy(&buffer[blk_addr*STORAGE_BLK_SIZ], buf, blk_len*STORAGE_BLK_SIZ);
-    
     for (uint32_t i = 0; i < blk_len; i++)
     {
         app_spi_flash_erase_sector_4k(&m_spi_flash, blk_addr+i);
@@ -321,6 +330,29 @@ static void spi_flash_delay(void *arg, uint32_t ms)
     uint32_t now = xTaskGetTickCount();
     vTaskDelayUntil(&now, ms);
 }
+
+static void task_spi_flash_cmd(void *arg)
+{
+    uint8_t cmd;
+    for (;;)
+    {
+        if (!xQueueReceive(m_cmd_queue, &cmd, portMAX_DELAY))
+        {
+            continue;
+        }
+        
+        switch(cmd)
+        {
+            case SPI_CMD_READ:
+                break;
+            case SPI_CMD_WRITE:
+                break;
+            default:
+                break;
+        }
+    }
+}
+
 /* USER CODE END PRIVATE_FUNCTIONS_IMPLEMENTATION */
 
 /**

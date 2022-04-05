@@ -29,6 +29,7 @@
 /* USER CODE BEGIN Includes */
 #include "app_debug.h"
 #include "Segger_RTT.h"
+#include "tusb.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/

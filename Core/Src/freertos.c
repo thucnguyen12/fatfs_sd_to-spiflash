@@ -26,6 +26,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "usbd_storage_if.h"
+#include "tusb.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -148,10 +149,12 @@ void StartDefaultTask(void const * argument)
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
     
-    MX_USB_DEVICE_Init();
+    tusb_init();
+//    MX_USB_DEVICE_Init();
   /* Infinite loop */
   for(;;)
   {
+    tud_task();
     osDelay(1);
   }
   /* USER CODE END StartDefaultTask */
