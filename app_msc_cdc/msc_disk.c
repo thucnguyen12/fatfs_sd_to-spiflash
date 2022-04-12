@@ -167,12 +167,12 @@ void tud_msc_capacity_cb(uint8_t lun, uint32_t* block_count, uint16_t* block_siz
 	*block_count = tmp;
 	disk_ioctl(0, GET_SECTOR_SIZE, &tmp);
 	*block_size = tmp;
-	m_disk_block_size = *block_size;
+//	m_disk_block_size = *block_size;
 	if (!m_cache)
 	{
 		m_cache = pvPortMalloc(m_disk_block_size);
 	}
-	DEBUG_INFO("Disk has %u block, size of block %u\r\n", *block_count, m_disk_block_size);
+	DEBUG_VERBOSE("Disk has %u block, size of block %u\r\n", *block_count, m_disk_block_size);
 }
 
 // Invoked when received Start Stop Unit command
@@ -229,7 +229,7 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void* buff
 	{
 		disk_read(0, buffer, lba, block_count);
 	}
-	DEBUG_INFO("Disk read %u bytes, LBA=%u, block = %u, size = %u\r\n", bufsize, block_count, m_disk_block_size);
+	DEBUG_INFO("Disk read %u bytes, LBA=%u, block = %u, size = %u\r\n", bufsize, lba, block_count, m_disk_block_size);
 
 	return bufsize;
 }
@@ -267,9 +267,9 @@ int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t* 
 //
 //  return bufsize;
 
-  const uint32_t block_count = (bufsize + m_disk_block_size -1) / m_disk_block_size;
+  	const uint32_t block_count = (bufsize + m_disk_block_size -1) / m_disk_block_size;
 
-	if (bufsize < m_disk_block_size)
+	if (bufsize <= m_disk_block_size)
 	{
 		disk_read(0, m_cache, lba, block_count);
 		memcpy(m_cache, buffer, bufsize);
@@ -279,7 +279,7 @@ int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t* 
 	{
 		disk_write(0, buffer, lba, block_count);
 	}
-	DEBUG_INFO("Disk write %u bytes, LBA=%u, block = %u, size = %u\r\n", bufsize, block_count, m_disk_block_size);
+	DEBUG_INFO("Disk write %u bytes, LBA=%u, block = %u, size = %u\r\n", bufsize, lba, block_count, m_disk_block_size);
 	return bufsize;
 }
 

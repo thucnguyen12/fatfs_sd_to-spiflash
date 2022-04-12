@@ -159,27 +159,28 @@ void StartDefaultTask(void const * argument)
     MX_USB_DEVICE_Init();
     DEBUG_INFO("tusb_init\r\n");
 
+    storage_flash_initialize();
     DEBUG_INFO("tusb_init cplt\r\n");
 
-    flash_res = f_mount(&USERFatFS, USERPath, 1);
-	if (flash_res != FR_OK)
-	{
-		DEBUG_WARN("Mount flash fail\r\n");
-		flash_res = f_mkfs(USERPath, FM_ANY, 0, gFSWork, sizeof gFSWork);
-		flash_res = f_mount(&USERFatFS, USERPath, 1);
-		if (flash_res == FR_OK)
-		{
-			DEBUG_INFO ("format disk and mount again\r\n");
-		}
-		else
-		{
-			DEBUG_ERROR("Mount flash error\r\n");
-		}
-	}
-	else
-	{
-		DEBUG_INFO ("Mount flash ok\r\n");
-	}
+//    flash_res = f_mount(&USERFatFS, USERPath, 1);
+//	if (flash_res != FR_OK)
+//	{
+//		DEBUG_WARN("Mount flash fail\r\n");
+//		flash_res = f_mkfs(USERPath, FM_ANY, 0, gFSWork, sizeof gFSWork);
+//		flash_res = f_mount(&USERFatFS, USERPath, 1);
+//		if (flash_res == FR_OK)
+//		{
+//			DEBUG_INFO ("format disk and mount again\r\n");
+//		}
+//		else
+//		{
+//			DEBUG_ERROR("Mount flash error\r\n");
+//		}
+//	}
+//	else
+//	{
+//		DEBUG_INFO ("Mount flash ok\r\n");
+//	}
 
     tusb_init();
   // Create CDC task
