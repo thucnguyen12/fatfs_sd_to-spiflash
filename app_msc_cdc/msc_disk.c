@@ -31,6 +31,14 @@
 #include "app_debug.h"
 #include "fatfs.h"
 
+typedef struct
+{
+	int32_t rd_sector;
+	int32_t wr_sector;
+//	uint32_t wr_offset;
+	uint8_t *wr_buffer;
+} usb_msc_cache_t;
+
 #if CFG_TUD_MSC
 
 // Some MCU doesn't have enough 8KB SRAM to store the whole disk
@@ -46,6 +54,14 @@ enum
 {
   DISK_BLOCK_NUM  = 16, // 8KB is the smallest size that windows allow to mount
   DISK_BLOCK_SIZE = 512
+};
+
+usb_msc_cache_t m_disk_cache =
+{
+		.rd_sector = -1,
+		.wr_sector = -1,
+//		.wr_offset = 0,
+		.wr_buffer = 0
 };
 
 #ifdef CFG_EXAMPLE_MSC_READONLY
@@ -149,7 +165,7 @@ bool tud_msc_test_unit_ready_cb(uint8_t lun)
 // Invoked when received SCSI_CMD_READ_CAPACITY_10 and SCSI_CMD_READ_FORMAT_CAPACITY to determine the disk size
 // Application update block count and block size
 uint32_t m_disk_block_size = 4096;
-static uint8_t *m_cache;
+
 void tud_msc_capacity_cb(uint8_t lun, uint32_t* block_count, uint16_t* block_size)
 {
   (void) lun;
@@ -168,9 +184,9 @@ void tud_msc_capacity_cb(uint8_t lun, uint32_t* block_count, uint16_t* block_siz
 	disk_ioctl(0, GET_SECTOR_SIZE, &tmp);
 	*block_size = tmp;
 //	m_disk_block_size = *block_size;
-	if (!m_cache)
+	if (!m_disk_cache.wr_buffer)
 	{
-		m_cache = pvPortMalloc(m_disk_block_size);
+		m_disk_cache.wr_buffer = pvPortMalloc(m_disk_block_size);
 	}
 	DEBUG_VERBOSE("Disk has %u block, size of block %u\r\n", *block_count, m_disk_block_size);
 }
@@ -222,12 +238,25 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void* buff
 	const uint32_t block_count = (bufsize + m_disk_block_size -1) / m_disk_block_size;
 	if (bufsize < m_disk_block_size)
 	{
-		disk_read(0, m_cache, lba, block_count);
-		memcpy(buffer, m_cache+offset, bufsize);
+		if (m_disk_cache.wr_sector == -1
+			|| m_disk_cache.rd_sector == -1
+			|| lba != m_disk_cache.rd_sector)		// If invalid sector =>> read data from flash immediately
+		{
+			DEBUG_WARN("Read from flash\r\n");
+			m_disk_cache.rd_sector = lba;
+			disk_read(0, m_disk_cache.wr_buffer, lba, block_count);
+		}
+		else
+		{
+			DEBUG_WARN("Read from cache\r\n");
+		}
+//		disk_read(0, m_cache, lba, block_count);
+		memcpy(buffer, m_disk_cache.wr_buffer+offset, bufsize);
 	}
-	else
+	else		// never happen
 	{
-		disk_read(0, buffer, lba, block_count);
+//		disk_read(0, buffer, lba, block_count);
+		configASSERT(0);
 	}
 	DEBUG_INFO("Disk read %u bytes, LBA=%u, offset %u, block = %u, size = %u\r\n", bufsize, lba, offset, block_count, m_disk_block_size);
 
@@ -236,7 +265,6 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void* buff
 
 // Callback invoked when received WRITE10 command.
 // Process data in buffer to disk's storage and return number of written bytes
-//static char m_last_data[DISK_BLOCK_SIZE];
 int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t* buffer, uint32_t bufsize)
 {
   (void) lun;
@@ -269,23 +297,30 @@ int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t* 
 
   	const uint32_t block_count = (bufsize + m_disk_block_size -1) / m_disk_block_size;
 
-	if (bufsize <= m_disk_block_size)
+	if (bufsize <= m_disk_block_size)		// always jump into here
 	{
-#if 0
-		user_diskio_raw_cmd_t cmd;
-		cmd.addr = lba*m_disk_block_size;
-		cmd.size = m_disk_block_size;
-		cmd.buffer = m_cache;
-		disk_ioctl(0, DISKIO_CMD_READ_RAW, &cmd);
-#else
-		disk_read(0, m_cache, lba, block_count);
-#endif
-		memcpy(m_cache+offset, buffer, bufsize);
-		disk_write(0, m_cache, lba, block_count);
+		// Read back all data from sector in flash to cache buffer
+		if (m_disk_cache.wr_sector == -1
+			|| lba != m_disk_cache.wr_sector)		// If invalid sector =>> read data from flash immediately
+		{
+			m_disk_cache.wr_sector = lba;
+			disk_read(0, m_disk_cache.wr_buffer, lba, block_count);
+		}
+
+		m_disk_cache.rd_sector = lba;
+		// Copy content
+		memcpy(&m_disk_cache.wr_buffer[offset], buffer, bufsize);
+
+		if (offset + 512 == m_disk_block_size)
+		{
+			// Sync now
+			DEBUG_WARN("Sync to flash now\r\n");
+			disk_write(0, m_disk_cache.wr_buffer, lba, block_count);
+		}
 	}
-	else
+	else		// never happen
 	{
-		disk_write(0, buffer, lba, block_count);
+		configASSERT(0);
 	}
 	DEBUG_INFO("Disk write %u bytes, LBA=%u, offset %u, block = %u, size = %u\r\n", bufsize, lba, offset, block_count, m_disk_block_size);
 	return bufsize;
