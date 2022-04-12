@@ -242,13 +242,14 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void* buff
 			|| m_disk_cache.rd_sector == -1
 			|| lba != m_disk_cache.rd_sector)		// If invalid sector =>> read data from flash immediately
 		{
-			DEBUG_WARN("Read from flash\r\n");
+			DEBUG_VERBOSE("Read from flash\r\n");
 			m_disk_cache.rd_sector = lba;
+			m_disk_cache.wr_sector = lba;
 			disk_read(0, m_disk_cache.wr_buffer, lba, block_count);
 		}
 		else
 		{
-			DEBUG_WARN("Read from cache\r\n");
+			DEBUG_VERBOSE("Read from cache\r\n");
 		}
 //		disk_read(0, m_cache, lba, block_count);
 		memcpy(buffer, m_disk_cache.wr_buffer+offset, bufsize);
@@ -258,7 +259,7 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void* buff
 //		disk_read(0, buffer, lba, block_count);
 		configASSERT(0);
 	}
-	DEBUG_INFO("Disk read %u bytes, LBA=%u, offset %u, block = %u, size = %u\r\n", bufsize, lba, offset, block_count, m_disk_block_size);
+	DEBUG_VERBOSE("Disk read %u bytes, LBA=%u, offset %u, block = %u, size = %u\r\n", bufsize, lba, offset, block_count, m_disk_block_size);
 
 	return bufsize;
 }

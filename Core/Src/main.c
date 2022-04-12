@@ -63,6 +63,8 @@ void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN 0 */
 uint32_t sys_get_ms(void);
 uint32_t rtt_tx(const void *buffer, uint32_t size);
+bool lock_debug(bool lock, uint32_t timeout_ms);
+static SemaphoreHandle_t m_lock_debug;
 /* USER CODE END 0 */
 
 /**
@@ -97,9 +99,10 @@ int main(void)
   MX_SPI1_Init();
 
   /* USER CODE BEGIN 2 */
-    app_debug_init(sys_get_ms, NULL);
+	m_lock_debug = xSemaphoreCreateMutex();
+	xSemaphoreGive(m_lock_debug);
+    app_debug_init(sys_get_ms, lock_debug);
     app_debug_register_callback_print(rtt_tx);
-    DEBUG_INFO("Application started\r\n");
 
   /* USER CODE END 2 */
 
@@ -176,6 +179,16 @@ uint32_t rtt_tx(const void *buffer, uint32_t size)
 {
     return SEGGER_RTT_Write(0, buffer, size);
 }
+
+
+bool lock_debug(bool lock, uint32_t timeout_ms)
+{
+	if (lock)
+		return xSemaphoreTake(m_lock_debug, timeout_ms);
+	xSemaphoreGive(m_lock_debug);
+	return true;
+}
+
 /* USER CODE END 4 */
 
 /**
