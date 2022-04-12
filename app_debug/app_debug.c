@@ -952,6 +952,8 @@ void app_debug_print_raw(const char *fmt, ...)
         nb_of_bytes += ee_number(num, base, field_width, precision, flags);
     }
     va_end(args);
+
+
     if (m_lock_cb)
     {
         m_lock_cb(false, 0);

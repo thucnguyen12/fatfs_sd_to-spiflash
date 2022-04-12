@@ -61,7 +61,7 @@ typedef union
 #define SPI_FLASH_SHUTDOWN_ENABLE 0
 #define HAL_SPI_Initialize() while (0)
 
-#define SECTOR_ERASE_TIME_MS 300
+#define SECTOR_ERASE_TIME_MS 400
 #define FLASH_WRITE_TIMEOUT_MS 2000
 #define FLASH_ERASE_TIMEOUT_MS 60000
 

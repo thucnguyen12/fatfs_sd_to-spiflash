@@ -29,6 +29,8 @@
 #include "tusb.h"
 #include "app_debug.h"
 #include "fatfs.h"
+#include "lwrb.h"
+#define USB_CDC_TX_RING_BUFFER_SIZE		1024
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -144,11 +146,10 @@ void StartDefaultTask(void const * argument)
 
     MX_FATFS_Init();
 
-    vTaskDelay(500);
+    vTaskDelay(500);		// time for usb renum
 
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, GPIO_PIN_SET);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_SET);
-
 
     GPIO_InitStruct.Pin = GPIO_PIN_11|GPIO_PIN_12;
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
@@ -190,7 +191,7 @@ void StartDefaultTask(void const * argument)
 
     tusb_init();
   // Create CDC task
-//  (void) xTaskCreateStatic(cdc_task, "cdc", CDC_STACK_SZIE, NULL, configMAX_PRIORITIES-2, cdc_stack, &cdc_taskdef);
+  (void) xTaskCreateStatic(cdc_task, "cdc", CDC_STACK_SZIE, NULL, configMAX_PRIORITIES-2, cdc_stack, &cdc_taskdef);
 
   /* Infinite loop */
   for(;;)
@@ -205,34 +206,90 @@ void StartDefaultTask(void const * argument)
 /* USER CODE BEGIN Application */
 
 
+static bool m_cdc_debug_register = false;
+static lwrb_t m_ringbuffer_usb_cdc_tx;
+static uint8_t m_lwrb_tx_raw_buffer[USB_CDC_TX_RING_BUFFER_SIZE];
+uint32_t cdc_tx(const void *buffer, uint32_t size)
+{
+	lwrb_write(&m_ringbuffer_usb_cdc_tx, buffer, size);
+	return size;
+}
 
 void cdc_task(void* params)
 {
+	lwrb_init(&m_ringbuffer_usb_cdc_tx, m_lwrb_tx_raw_buffer, USB_CDC_TX_RING_BUFFER_SIZE);
 	for (;;)
 	{
 //	    // connected() check for DTR bit
 //	    // Most but not all terminal client set this when making connection
-//	    if (tud_cdc_connected())
-//		{
-//	    	app_debug_register_callback_print(callback)
-//			// There are data available
-//			if (tud_cdc_available())
-//			{
-//				uint8_t buf[64];
-//
-//				// read and echo back
-//				uint32_t count = tud_cdc_read(buf, sizeof(buf));
-//				(void) count;
-//
+	    if (tud_cdc_connected())
+		{
+	    	if (m_cdc_debug_register == false)
+	    	{
+	    		m_cdc_debug_register = true;
+	    		app_debug_register_callback_print(cdc_tx);
+	    	}
+			// There are data available
+			if (tud_cdc_available())
+			{
+				uint8_t buf[64];
+
+				// read and echo back
+				uint32_t count = tud_cdc_read(buf, sizeof(buf));
+				(void) count;
+
+				if (count && strstr((char*)buf, "RESET"))
+				{
+					tud_cdc_write_flush();
+					tud_cdc_write_str("System reset\r\n");
+					tud_cdc_write_flush();
+					vTaskDelay(1000);
+					NVIC_SystemReset();
+				}
 //				// Echo back
 //				// Note: Skip echo by commenting out write() and write_flush()
 //				// for throughput test e.g
 //				//    $ dd if=/dev/zero of=/dev/ttyACM0 count=10000
 //				tud_cdc_write(buf, count);
 //				tud_cdc_write_flush();
-//			}
-//		}
-	    vTaskDelay(pdMS_TO_TICKS(10));
+			}
+		}
+	    else
+	    {
+	    	if (m_cdc_debug_register)
+	    	{
+	    		m_cdc_debug_register = false;
+	    		app_debug_unregister_callback_print(cdc_tx);
+		    	// Flush all cdc tx buffer
+		    	char tmp[1];
+		    	while (lwrb_read(&m_ringbuffer_usb_cdc_tx, tmp, 1))
+		    	{
+
+		    	}
+	    	}
+	    }
+
+	    char buffer[ (TUD_OPT_HIGH_SPEED ? 512 : 64)];
+	    uint32_t size;
+	    while (1)
+	    {
+	    	uint32_t avai = tud_cdc_write_available();
+	    	if (avai >= sizeof(buffer))
+	    	{
+	    		avai = sizeof(buffer);
+	    	}
+			size = lwrb_read(&m_ringbuffer_usb_cdc_tx, buffer, avai);
+			if (size)
+			{
+				tud_cdc_write(buffer, size);
+				tud_cdc_write_flush();
+			}
+			else
+			{
+				break;
+			}
+	    }
+	    vTaskDelay(pdMS_TO_TICKS(1));
 	}
 }
 /* USER CODE END Application */
