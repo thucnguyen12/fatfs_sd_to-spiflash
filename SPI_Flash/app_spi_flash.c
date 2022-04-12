@@ -12,7 +12,7 @@ typedef union
     uint8_t raw[4];
 } __attribute__((packed)) app_spi_flash_device_id_t;
 
-#define VERIFY_FLASH 1
+#define VERIFY_FLASH 0
 #define DEBUG_FLASH 0
 #define FLASH_INIT_MAX_RETRIES 3
 
@@ -315,8 +315,7 @@ void app_spi_flash_direct_write_bytes(app_flash_drv_t *flash_drv, uint32_t addr,
         return;
     }
     DEBUG_VERBOSE("Flash write page addr 0x%08X, size %u\r\n", addr, length);
-    uint32_t i = 0;
-    uint32_t old_addr = addr;
+
 
     flash_write_control(flash_drv, 1);
     flash_drv->callback.spi_cs(flash_drv->spi, 0);
@@ -362,6 +361,8 @@ void app_spi_flash_direct_write_bytes(app_flash_drv_t *flash_drv, uint32_t addr,
     wait_write_in_process(flash_drv, FLASH_WRITE_TIMEOUT_MS);
 
 #if VERIFY_FLASH
+    uint32_t i = 0;
+    uint32_t old_addr = addr;
     bool found_error = false;
     for (i = 0; i < length; i++) // Debug only
     {
@@ -570,14 +571,14 @@ void app_spi_flash_erase_sector_4k(app_flash_drv_t *flash_drv, uint32_t sector_c
     flash_drv->callback.spi_cs(flash_drv->spi, 1);
     flash_drv->callback.delay_ms(flash_drv, SECTOR_ERASE_TIME_MS);
     wait_write_in_process(flash_drv, 30);
-    if (app_spi_flash_is_sector_empty(flash_drv, sector_count))
-    {
-        DEBUG_INFO("Success\r\n", sector_count);
-    }
-    else
-    {
-        DEBUG_ERROR("Failed\r\n", sector_count);
-    }
+//    if (app_spi_flash_is_sector_empty(flash_drv, sector_count))
+//    {
+//        DEBUG_INFO("Success\r\n", sector_count);
+//    }
+//    else
+//    {
+//        DEBUG_ERROR("Failed\r\n", sector_count);
+//    }
 }
 
 #if 0
@@ -1136,7 +1137,6 @@ void app_spi_flash_erase_from_to(app_flash_drv_t *flash_drv, uint32_t addr, uint
 {
 
     uint32_t i = 0;
-    uint32_t old_addr = addr;
 
     uint8_t tmp[96];
     if (addr + len > flash_drv->info.size)
@@ -1201,6 +1201,7 @@ void app_spi_flash_erase_from_to(app_flash_drv_t *flash_drv, uint32_t addr, uint
         // wait_write_in_process(flash_drv, FLASH_WRITE_TIMEOUT_MS);
 
 #if VERIFY_FLASH
+        uint32_t old_addr = addr;
         bool found_error = false;
         for (i = 0; i < wr_size; i++) // Debug only
         {

@@ -9,6 +9,7 @@
 #define APP_SPI_FLASH_SECTOR_SIZE 						4096
 #define APP_SPI_FLASH_BLOCK_SIZE						65536
 #define APP_SPI_FLASH_HEADER_ADDR						0
+#define APP_SPI_FLASH_CACHE_ENABLE						1
 
 typedef struct
 {

@@ -157,10 +157,10 @@ DRESULT USER_read (
   /* USER CODE BEGIN READ */
 	uint32_t i;
 	uint32_t addr = sector * APP_SPI_FLASH_SECTOR_SIZE;
+	DEBUG_INFO ("Read data at sector %d to %d\r\n", sector, sector + count);
 	for (i=0; i<count; i++)
 	{
 		app_spi_flash_read_bytes(&m_spi_flash, addr, buff, APP_SPI_FLASH_SECTOR_SIZE);
-		DEBUG_INFO ("Read data at sector %d\r\n", sector);
 		sector++;
 		buff += APP_SPI_FLASH_SECTOR_SIZE;
 		addr += APP_SPI_FLASH_SECTOR_SIZE;
@@ -254,7 +254,7 @@ DRESULT USER_ioctl (
 
 		case GET_SECTOR_COUNT:
 			*(DWORD*)buff = m_spi_flash.info.size/APP_SPI_FLASH_SECTOR_SIZE;
-			DEBUG_INFO ("get sector count %u\r\n", *(DWORD*)buff);
+			DEBUG_INFO ("User diskio sector count %u\r\n", *(DWORD*)buff);
 			res = RES_OK;
 		//	buf[0] = (u8)(FLASH_SECTOR_COUNT & 0xFF);
 		//	buf[1] = (u8)(FLASH_SECTOR_COUNT >> 8);
