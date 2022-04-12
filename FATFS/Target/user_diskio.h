@@ -27,6 +27,19 @@
 #endif
 
 /* USER CODE BEGIN 0 */
+#include <stdint.h>
+
+ typedef struct
+ {
+	 uint32_t addr;
+	 uint16_t size;
+	 uint8_t *buffer;
+ } user_diskio_raw_cmd_t;
+
+
+#define DISKIO_CMD_WRITE_RAW	23
+#define DISKIO_CMD_READ_RAW		24
+#define DISKIO_CMD_ERASE		25
 
 /* Includes ------------------------------------------------------------------*/
 /* Exported types ------------------------------------------------------------*/

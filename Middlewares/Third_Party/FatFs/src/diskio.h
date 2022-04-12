@@ -73,6 +73,7 @@ DWORD get_fattime (void);
 #define ATA_GET_MODEL		21	/* Get model name */
 #define ATA_GET_SN			22	/* Get serial number */
 
+
 #ifdef __cplusplus
 }
 #endif

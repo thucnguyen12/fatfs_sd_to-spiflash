@@ -42,6 +42,7 @@
 #include "app_spi_flash.h"
 #include "app_drv_spi.h"
 #include "spi.h"
+#include "user_diskio.h"
 /* Private variables ---------------------------------------------------------*/
 /* Disk status */
 static volatile DSTATUS Stat = STA_NOINIT;
@@ -258,6 +259,27 @@ DRESULT USER_ioctl (
 			res = RES_OK;
 		//	buf[0] = (u8)(FLASH_SECTOR_COUNT & 0xFF);
 		//	buf[1] = (u8)(FLASH_SECTOR_COUNT >> 8);
+			break;
+
+		case DISKIO_CMD_WRITE_RAW:
+		{
+			user_diskio_raw_cmd_t *cmd = (user_diskio_raw_cmd_t*)buff;
+			app_spi_flash_write(&m_spi_flash, cmd->addr, cmd->buffer, cmd->size);
+		}
+			break;
+		case DISKIO_CMD_READ_RAW:
+		{
+			user_diskio_raw_cmd_t *cmd = (user_diskio_raw_cmd_t*)buff;
+			app_spi_flash_erase_sector_4k(&m_spi_flash, cmd->addr/APP_SPI_FLASH_SECTOR_SIZE);
+			app_spi_flash_read_bytes(&m_spi_flash, cmd->addr, cmd->buffer, cmd->size);
+		}
+			break;
+
+		case DISKIO_CMD_ERASE:
+		{
+			DWORD sector = *(DWORD*)buff;
+			app_spi_flash_erase_sector_4k(&m_spi_flash, sector);
+		}
 			break;
 
 		default:

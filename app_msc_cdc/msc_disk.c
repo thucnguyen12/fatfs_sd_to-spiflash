@@ -223,13 +223,13 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void* buff
 	if (bufsize < m_disk_block_size)
 	{
 		disk_read(0, m_cache, lba, block_count);
-		memcpy(buffer, m_cache, bufsize);
+		memcpy(buffer, m_cache+offset, bufsize);
 	}
 	else
 	{
 		disk_read(0, buffer, lba, block_count);
 	}
-	DEBUG_INFO("Disk read %u bytes, LBA=%u, block = %u, size = %u\r\n", bufsize, lba, block_count, m_disk_block_size);
+	DEBUG_INFO("Disk read %u bytes, LBA=%u, offset %u, block = %u, size = %u\r\n", bufsize, lba, offset, block_count, m_disk_block_size);
 
 	return bufsize;
 }
@@ -271,15 +271,23 @@ int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t* 
 
 	if (bufsize <= m_disk_block_size)
 	{
+#if 0
+		user_diskio_raw_cmd_t cmd;
+		cmd.addr = lba*m_disk_block_size;
+		cmd.size = m_disk_block_size;
+		cmd.buffer = m_cache;
+		disk_ioctl(0, DISKIO_CMD_READ_RAW, &cmd);
+#else
 		disk_read(0, m_cache, lba, block_count);
-		memcpy(m_cache, buffer, bufsize);
+#endif
+		memcpy(m_cache+offset, buffer, bufsize);
 		disk_write(0, m_cache, lba, block_count);
 	}
 	else
 	{
 		disk_write(0, buffer, lba, block_count);
 	}
-	DEBUG_INFO("Disk write %u bytes, LBA=%u, block = %u, size = %u\r\n", bufsize, lba, block_count, m_disk_block_size);
+	DEBUG_INFO("Disk write %u bytes, LBA=%u, offset %u, block = %u, size = %u\r\n", bufsize, lba, offset, block_count, m_disk_block_size);
 	return bufsize;
 }
 
