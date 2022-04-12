@@ -95,7 +95,7 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_SPI1_Init();
-  MX_FATFS_Init();
+
   /* USER CODE BEGIN 2 */
     app_debug_init(sys_get_ms, NULL);
     app_debug_register_callback_print(rtt_tx);

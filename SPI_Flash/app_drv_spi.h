@@ -55,4 +55,10 @@ uint8_t app_drv_spi_transmit_byte(void *spi, uint8_t data);
  */
 void app_drv_spi_cs(void *spi, bool level);
 
+/**
+ * @brief		Get HSPI handle
+ * @retval		HSPI handle
+ */
+void *app_drv_spi_handle(void);
+
 #endif /* APP_DRV_SPI_H_ */

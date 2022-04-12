@@ -7,6 +7,7 @@
 #define APP_SPI_FLASH_DATA_HEADER_KEY                   0x9813567A
 #define APP_SPI_FLASH_PAGE_SIZE 						256
 #define APP_SPI_FLASH_SECTOR_SIZE 						4096
+#define APP_SPI_FLASH_BLOCK_SIZE						65536
 #define APP_SPI_FLASH_HEADER_ADDR						0
 
 typedef struct

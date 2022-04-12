@@ -25,6 +25,11 @@
 
 //#include "bsp/board.h"
 #include "tusb.h"
+#include "app_spi_flash.h"
+#include "app_drv_spi.h"
+#include "spi.h"
+#include "app_debug.h"
+#include "fatfs.h"
 
 #if CFG_TUD_MSC
 
@@ -131,6 +136,7 @@ void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16
   memcpy(product_rev, rev, strlen(rev));
 }
 
+
 // Invoked when received Test Unit Ready command.
 // return true allowing host to read/write this LUN e.g SD card inserted
 bool tud_msc_test_unit_ready_cb(uint8_t lun)
@@ -142,17 +148,37 @@ bool tud_msc_test_unit_ready_cb(uint8_t lun)
 
 // Invoked when received SCSI_CMD_READ_CAPACITY_10 and SCSI_CMD_READ_FORMAT_CAPACITY to determine the disk size
 // Application update block count and block size
+uint32_t m_disk_block_size = 4096;
+static uint8_t *m_cache;
 void tud_msc_capacity_cb(uint8_t lun, uint32_t* block_count, uint16_t* block_size)
 {
   (void) lun;
+  if (lun > 0)
+  {
+	  DEBUG_ERROR("invalid lun number %u", lun);
+	  return;
+  }
 
-  *block_count = DISK_BLOCK_NUM;
-  *block_size  = DISK_BLOCK_SIZE;
+//  *block_count = DISK_BLOCK_NUM; //m_spi_flash.info.size/DISK_BLOCK_SIZE;
+//  *block_size  = DISK_BLOCK_SIZE;
+//  DEBUG_VERBOSE("Block count %u, size %u\r\n", *block_count, *block_size);
+	uint32_t tmp;
+	disk_ioctl(0, GET_SECTOR_COUNT, &tmp);
+	*block_count = tmp;
+	disk_ioctl(0, GET_SECTOR_SIZE, &tmp);
+	*block_size = tmp;
+	m_disk_block_size = *block_size;
+	if (!m_cache)
+	{
+		m_cache = pvPortMalloc(m_disk_block_size);
+	}
+	DEBUG_INFO("Disk has %u block, size of block %u\r\n", *block_count, m_disk_block_size);
 }
 
 // Invoked when received Start Stop Unit command
 // - Start = 0 : stopped power mode, if load_eject = 1 : unload disk storage
 // - Start = 1 : active mode, if load_eject = 1 : load disk storage
+
 bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, bool load_eject)
 {
   (void) lun;
@@ -176,34 +202,85 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
 // Copy disk's data to buffer (up to bufsize) and return number of copied bytes.
 int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void* buffer, uint32_t bufsize)
 {
-  (void) lun;
+//  (void) lun;
+//
+//  // out of ramdisk
+//  if ( lba >= DISK_BLOCK_NUM ) return -1;
+////  if ( lba >= m_spi_flash.info.size/DISK_BLOCK_SIZE ) return -1;
+////
+////  app_spi_flash_read_bytes(&m_spi_flash, lba*DISK_BLOCK_SIZE + offset, buffer, bufsize);
+//
+//  uint8_t const* addr = msc_disk[lba] + offset;
+//  memcpy(buffer, addr, bufsize);
+//  DEBUG_VERBOSE("LBA %u, offset %u\r\n", lba, offset);
+	 if (lun != 0)
+	 {
+		DEBUG_ERROR("Invalid lun number %u", lun);
+		return 0;
+	}
 
-  // out of ramdisk
-  if ( lba >= DISK_BLOCK_NUM ) return -1;
+	const uint32_t block_count = (bufsize + m_disk_block_size -1) / m_disk_block_size;
+	if (bufsize < m_disk_block_size)
+	{
+		disk_read(0, m_cache, lba, block_count);
+		memcpy(buffer, m_cache, bufsize);
+	}
+	else
+	{
+		disk_read(0, buffer, lba, block_count);
+	}
+	DEBUG_INFO("Disk read %u bytes, LBA=%u, block = %u, size = %u\r\n", bufsize, block_count, m_disk_block_size);
 
-  uint8_t const* addr = msc_disk[lba] + offset;
-  memcpy(buffer, addr, bufsize);
-
-  return bufsize;
+	return bufsize;
 }
 
 // Callback invoked when received WRITE10 command.
 // Process data in buffer to disk's storage and return number of written bytes
+//static char m_last_data[DISK_BLOCK_SIZE];
 int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t* buffer, uint32_t bufsize)
 {
   (void) lun;
+//
+//  // out of ramdisk
+//  	if ( lba >= DISK_BLOCK_NUM ) return -1;
+////  if ( lba >= m_spi_flash.info.size/DISK_BLOCK_SIZE ) return -1;
+////
+////  for (uint32_t i = 0; i < (bufsize+DISK_BLOCK_SIZE-1)/DISK_BLOCK_SIZE; i++)
+////  {
+////	  uint32_t size = bufsize;
+////	  if (size > DISK_BLOCK_SIZE)
+////	  {
+////		  size = DISK_BLOCK_SIZE;
+////	  }
+////	  app_spi_flash_direct_write_bytes(&m_spi_flash, (lba+i)*DISK_BLOCK_SIZE + offset, buffer, size);
+////	  buffer += size;
+////	  bufsize -= size;
+////  }
+//
+//#ifndef CFG_EXAMPLE_MSC_READONLY
+//  uint8_t* addr = msc_disk[lba] + offset;
+//  memcpy(addr, buffer, bufsize);
+//#else
+//  (void) lba; (void) offset; (void) buffer;
+//#endif
+//
+//
+//  return bufsize;
 
-  // out of ramdisk
-  if ( lba >= DISK_BLOCK_NUM ) return -1;
+  const uint32_t block_count = (bufsize + m_disk_block_size -1) / m_disk_block_size;
 
-#ifndef CFG_EXAMPLE_MSC_READONLY
-  uint8_t* addr = msc_disk[lba] + offset;
-  memcpy(addr, buffer, bufsize);
-#else
-  (void) lba; (void) offset; (void) buffer;
-#endif
-
-  return bufsize;
+	if (bufsize < m_disk_block_size)
+	{
+		disk_read(0, m_cache, lba, block_count);
+		memcpy(m_cache, buffer, bufsize);
+		disk_write(0, m_cache, lba, block_count);
+	}
+	else
+	{
+		disk_write(0, buffer, lba, block_count);
+	}
+	DEBUG_INFO("Disk write %u bytes, LBA=%u, block = %u, size = %u\r\n", bufsize, block_count, m_disk_block_size);
+	return bufsize;
 }
 
 // Callback invoked when received an SCSI command not in built-in list below
