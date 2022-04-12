@@ -26,7 +26,7 @@
 
 #include "tusb_option.h"
 
-#if (CFG_TUH_ENABLED && CFG_TUH_HUB)
+#if (TUSB_OPT_HOST_ENABLED && CFG_TUH_HUB)
 
 #include "usbh.h"
 #include "usbh_classdriver.h"
@@ -54,7 +54,7 @@ static inline hub_interface_t* get_itf(uint8_t dev_addr)
   return &hub_data[dev_addr-1-CFG_TUH_DEVICE_MAX];
 }
 
-#if CFG_TUSB_DEBUG >= 2
+#if CFG_TUSB_DEBUG
 static char const* const _hub_feature_str[] =
 {
   [HUB_FEATURE_PORT_CONNECTION          ] = "PORT_CONNECTION",
@@ -77,8 +77,7 @@ static char const* const _hub_feature_str[] =
 //--------------------------------------------------------------------+
 // HUB
 //--------------------------------------------------------------------+
-bool hub_port_clear_feature(uint8_t hub_addr, uint8_t hub_port, uint8_t feature,
-                            tuh_xfer_cb_t complete_cb, uintptr_t user_data)
+bool hub_port_clear_feature(uint8_t hub_addr, uint8_t hub_port, uint8_t feature, tuh_control_complete_cb_t complete_cb)
 {
   tusb_control_request_t const request =
   {
@@ -94,23 +93,12 @@ bool hub_port_clear_feature(uint8_t hub_addr, uint8_t hub_port, uint8_t feature,
     .wLength  = 0
   };
 
-  tuh_xfer_t xfer =
-  {
-    .daddr       = hub_addr,
-    .ep_addr     = 0,
-    .setup       = &request,
-    .buffer      = NULL,
-    .complete_cb = complete_cb,
-    .user_data   = user_data
-  };
-
   TU_LOG2("HUB Clear Feature: %s, addr = %u port = %u\r\n", _hub_feature_str[feature], hub_addr, hub_port);
-  TU_ASSERT( tuh_control_xfer(&xfer) );
+  TU_ASSERT( tuh_control_xfer(hub_addr, &request, NULL, complete_cb) );
   return true;
 }
 
-bool hub_port_set_feature(uint8_t hub_addr, uint8_t hub_port, uint8_t feature,
-                          tuh_xfer_cb_t complete_cb, uintptr_t user_data)
+bool hub_port_set_feature(uint8_t hub_addr, uint8_t hub_port, uint8_t feature, tuh_control_complete_cb_t complete_cb)
 {
   tusb_control_request_t const request =
   {
@@ -126,23 +114,17 @@ bool hub_port_set_feature(uint8_t hub_addr, uint8_t hub_port, uint8_t feature,
     .wLength  = 0
   };
 
-  tuh_xfer_t xfer =
-  {
-    .daddr       = hub_addr,
-    .ep_addr     = 0,
-    .setup       = &request,
-    .buffer      = NULL,
-    .complete_cb = complete_cb,
-    .user_data   = user_data
-  };
-
   TU_LOG2("HUB Set Feature: %s, addr = %u port = %u\r\n", _hub_feature_str[feature], hub_addr, hub_port);
-  TU_ASSERT( tuh_control_xfer(&xfer) );
+  TU_ASSERT( tuh_control_xfer(hub_addr, &request, NULL, complete_cb) );
   return true;
 }
 
-bool hub_port_get_status(uint8_t hub_addr, uint8_t hub_port, void* resp,
-                         tuh_xfer_cb_t complete_cb, uintptr_t user_data)
+bool hub_port_reset(uint8_t hub_addr, uint8_t hub_port, tuh_control_complete_cb_t complete_cb)
+{
+  return hub_port_set_feature(hub_addr, hub_port, HUB_FEATURE_PORT_RESET, complete_cb);
+}
+
+bool hub_port_get_status(uint8_t hub_addr, uint8_t hub_port, void* resp, tuh_control_complete_cb_t complete_cb)
 {
   tusb_control_request_t const request =
   {
@@ -158,18 +140,8 @@ bool hub_port_get_status(uint8_t hub_addr, uint8_t hub_port, void* resp,
     .wLength  = 4
   };
 
-  tuh_xfer_t xfer =
-  {
-    .daddr       = hub_addr,
-    .ep_addr     = 0,
-    .setup       = &request,
-    .buffer      = resp,
-    .complete_cb = complete_cb,
-    .user_data   = user_data
-  };
-
   TU_LOG2("HUB Get Port Status: addr = %u port = %u\r\n", hub_addr, hub_port);
-  TU_ASSERT( tuh_control_xfer(&xfer) );
+  TU_ASSERT( tuh_control_xfer( hub_addr, &request, resp, complete_cb) );
   return true;
 }
 
@@ -183,8 +155,6 @@ void hub_init(void)
 
 bool hub_open(uint8_t rhport, uint8_t dev_addr, tusb_desc_interface_t const *itf_desc, uint16_t max_len)
 {
-  (void) rhport;
-
   TU_VERIFY(TUSB_CLASS_HUB == itf_desc->bInterfaceClass &&
             0              == itf_desc->bInterfaceSubClass);
 
@@ -201,7 +171,7 @@ bool hub_open(uint8_t rhport, uint8_t dev_addr, tusb_desc_interface_t const *itf
   TU_ASSERT(TUSB_DESC_ENDPOINT  == desc_ep->bDescriptorType &&
             TUSB_XFER_INTERRUPT == desc_ep->bmAttributes.xfer, 0);
   
-  TU_ASSERT(tuh_edpt_open(dev_addr, desc_ep));
+  TU_ASSERT(usbh_edpt_open(rhport, dev_addr, desc_ep));
 
   hub_interface_t* p_hub = get_itf(dev_addr);
 
@@ -219,7 +189,7 @@ void hub_close(uint8_t dev_addr)
   if (p_hub->ep_in) tu_memclr(p_hub, sizeof( hub_interface_t));
 }
 
-bool hub_edpt_status_xfer(uint8_t dev_addr)
+bool hub_status_pipe_queue(uint8_t dev_addr)
 {
   hub_interface_t* hub_itf = get_itf(dev_addr);
   return usbh_edpt_xfer(dev_addr, hub_itf->ep_in, &hub_itf->status_change, 1);
@@ -230,8 +200,8 @@ bool hub_edpt_status_xfer(uint8_t dev_addr)
 // Set Configure
 //--------------------------------------------------------------------+
 
-static void config_set_port_power (tuh_xfer_t* xfer);
-static void config_port_power_complete (tuh_xfer_t* xfer);
+static bool config_set_port_power (uint8_t dev_addr, tusb_control_request_t const * request, xfer_result_t result);
+static bool config_port_power_complete (uint8_t dev_addr, tusb_control_request_t const * request, xfer_result_t result);
 
 bool hub_set_config(uint8_t dev_addr, uint8_t itf_num)
 {
@@ -253,27 +223,17 @@ bool hub_set_config(uint8_t dev_addr, uint8_t itf_num)
     .wLength  = sizeof(descriptor_hub_desc_t)
   };
 
-  tuh_xfer_t xfer =
-  {
-    .daddr       = dev_addr,
-    .ep_addr     = 0,
-    .setup       = &request,
-    .buffer      = _hub_buffer,
-    .complete_cb = config_set_port_power,
-    .user_data    = 0
-  };
-
-  TU_ASSERT( tuh_control_xfer(&xfer) );
+  TU_ASSERT( tuh_control_xfer(dev_addr, &request, _hub_buffer, config_set_port_power) );
 
   return true;
 }
 
-static void config_set_port_power (tuh_xfer_t* xfer)
+static bool config_set_port_power (uint8_t dev_addr, tusb_control_request_t const * request, xfer_result_t result)
 {
-  TU_ASSERT(XFER_RESULT_SUCCESS == xfer->result, );
+  (void) request;
+  TU_ASSERT(XFER_RESULT_SUCCESS == result);
 
-  uint8_t const daddr = xfer->daddr;
-  hub_interface_t* p_hub = get_itf(daddr);
+  hub_interface_t* p_hub = get_itf(dev_addr);
 
   // only use number of ports in hub descriptor
   descriptor_hub_desc_t const* desc_hub = (descriptor_hub_desc_t const*) _hub_buffer;
@@ -283,38 +243,38 @@ static void config_set_port_power (tuh_xfer_t* xfer)
 
   // Set Port Power to be able to detect connection, starting with port 1
   uint8_t const hub_port = 1;
-  hub_port_set_feature(daddr, hub_port, HUB_FEATURE_PORT_POWER, config_port_power_complete, 0);
+  return hub_port_set_feature(dev_addr, hub_port, HUB_FEATURE_PORT_POWER, config_port_power_complete);
 }
 
-static void config_port_power_complete (tuh_xfer_t* xfer)
+static bool config_port_power_complete (uint8_t dev_addr, tusb_control_request_t const * request, xfer_result_t result)
 {
-  TU_ASSERT(XFER_RESULT_SUCCESS == xfer->result, );
+  TU_ASSERT(XFER_RESULT_SUCCESS == result);
+   hub_interface_t* p_hub = get_itf(dev_addr);
 
-  uint8_t const daddr = xfer->daddr;
-  hub_interface_t* p_hub = get_itf(daddr);
-
-  if (xfer->setup->wIndex == p_hub->port_count)
+  if (request->wIndex == p_hub->port_count)
   {
     // All ports are power -> queue notification status endpoint and
     // complete the SET CONFIGURATION
-    TU_ASSERT( usbh_edpt_xfer(daddr, p_hub->ep_in, &p_hub->status_change, 1), );
+    TU_ASSERT( usbh_edpt_xfer(dev_addr, p_hub->ep_in, &p_hub->status_change, 1) );
 
-    usbh_driver_set_config_complete(daddr, p_hub->itf_num);
+    usbh_driver_set_config_complete(dev_addr, p_hub->itf_num);
   }else
   {
     // power next port
-    uint8_t const hub_port = (uint8_t) (xfer->setup->wIndex + 1);
-    hub_port_set_feature(daddr, hub_port, HUB_FEATURE_PORT_POWER, config_port_power_complete, 0);
+    uint8_t const hub_port = (uint8_t) (request->wIndex + 1);
+    return hub_port_set_feature(dev_addr, hub_port, HUB_FEATURE_PORT_POWER, config_port_power_complete);
   }
+
+  return true;
 }
 
 //--------------------------------------------------------------------+
 // Connection Changes
 //--------------------------------------------------------------------+
 
-static void connection_get_status_complete (tuh_xfer_t* xfer);
-static void connection_clear_conn_change_complete (tuh_xfer_t* xfer);
-static void connection_port_reset_complete (tuh_xfer_t* xfer);
+static bool connection_get_status_complete (uint8_t dev_addr, tusb_control_request_t const * request, xfer_result_t result);
+static bool connection_clear_conn_change_complete (uint8_t dev_addr, tusb_control_request_t const * request, xfer_result_t result);
+static bool connection_port_reset_complete (uint8_t dev_addr, tusb_control_request_t const * request, xfer_result_t result);
 
 // callback as response of interrupt endpoint polling
 bool hub_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t result, uint32_t xferred_bytes)
@@ -332,7 +292,7 @@ bool hub_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t result, uint32
   {
     if ( tu_bit_test(p_hub->status_change, port) )
     {
-      hub_port_get_status(dev_addr, port, &p_hub->port_status, connection_get_status_complete, 0);
+      hub_port_get_status(dev_addr, port, &p_hub->port_status, connection_get_status_complete);
       break;
     }
   }
@@ -342,13 +302,12 @@ bool hub_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t result, uint32
   return true;
 }
 
-static void connection_get_status_complete (tuh_xfer_t* xfer)
+static bool connection_get_status_complete (uint8_t dev_addr, tusb_control_request_t const * request, xfer_result_t result)
 {
-  TU_ASSERT(xfer->result == XFER_RESULT_SUCCESS, );
+  TU_ASSERT(result == XFER_RESULT_SUCCESS);
 
-  uint8_t const daddr = xfer->daddr;
-  hub_interface_t* p_hub = get_itf(daddr);
-  uint8_t const port_num = (uint8_t) tu_le16toh(xfer->setup->wIndex);
+  hub_interface_t* p_hub = get_itf(dev_addr);
+  uint8_t const port_num = (uint8_t) request->wIndex;
 
   // Connection change
   if (p_hub->port_status.change.connection)
@@ -357,7 +316,7 @@ static void connection_get_status_complete (tuh_xfer_t* xfer)
     //TU_VERIFY(port_status.status_current.port_power && port_status.status_current.port_enable, );
 
     // Acknowledge Port Connection Change
-    hub_port_clear_feature(daddr, port_num, HUB_FEATURE_PORT_CONNECTION_CHANGE, connection_clear_conn_change_complete, 0);
+    hub_port_clear_feature(dev_addr, port_num, HUB_FEATURE_PORT_CONNECTION_CHANGE, connection_clear_conn_change_complete);
   }else
   {
     // Other changes are: Enable, Suspend, Over Current, Reset, L1 state
@@ -365,61 +324,65 @@ static void connection_get_status_complete (tuh_xfer_t* xfer)
 
     // prepare for next hub status
     // TODO continue with status_change, or maybe we can do it again with status
-    hub_edpt_status_xfer(daddr);
+    hub_status_pipe_queue(dev_addr);
   }
+
+  return true;
 }
 
-static void connection_clear_conn_change_complete (tuh_xfer_t* xfer)
+static bool connection_clear_conn_change_complete (uint8_t dev_addr, tusb_control_request_t const * request, xfer_result_t result)
 {
-  TU_ASSERT(xfer->result == XFER_RESULT_SUCCESS, );
+  TU_ASSERT(result == XFER_RESULT_SUCCESS);
 
-  uint8_t const daddr = xfer->daddr;
-  hub_interface_t* p_hub = get_itf(daddr);
-  uint8_t const port_num = (uint8_t) tu_le16toh(xfer->setup->wIndex);
+  hub_interface_t* p_hub = get_itf(dev_addr);
+  uint8_t const port_num = (uint8_t) request->wIndex;
 
   if ( p_hub->port_status.status.connection )
   {
     // Reset port if attach event
-    hub_port_reset(daddr, port_num, connection_port_reset_complete, 0);
+    hub_port_reset(dev_addr, port_num, connection_port_reset_complete);
   }else
   {
     // submit detach event
     hcd_event_t event =
     {
-      .rhport     = usbh_get_rhport(daddr),
+      .rhport     = usbh_get_rhport(dev_addr),
       .event_id   = HCD_EVENT_DEVICE_REMOVE,
       .connection =
        {
-         .hub_addr = daddr,
+         .hub_addr = dev_addr,
          .hub_port = port_num
        }
     };
 
     hcd_event_handler(&event, false);
   }
+
+  return true;
 }
 
-static void connection_port_reset_complete (tuh_xfer_t* xfer)
+static bool connection_port_reset_complete (uint8_t dev_addr, tusb_control_request_t const * request, xfer_result_t result)
 {
-  TU_ASSERT(xfer->result == XFER_RESULT_SUCCESS, );
+  TU_ASSERT(result == XFER_RESULT_SUCCESS);
 
-  uint8_t const daddr = xfer->daddr;
-  // hub_interface_t* p_hub = get_itf(daddr);
-  uint8_t const port_num = (uint8_t) tu_le16toh(xfer->setup->wIndex);
+  // hub_interface_t* p_hub = get_itf(dev_addr);
+  uint8_t const port_num = (uint8_t) request->wIndex;
 
   // submit attach event
   hcd_event_t event =
   {
-    .rhport     = usbh_get_rhport(daddr),
+    .rhport     = usbh_get_rhport(dev_addr),
     .event_id   = HCD_EVENT_DEVICE_ATTACH,
     .connection =
     {
-      .hub_addr = daddr,
+      .hub_addr = dev_addr,
       .hub_port = port_num
     }
   };
 
   hcd_event_handler(&event, false);
+
+  return true;
 }
 
 #endif

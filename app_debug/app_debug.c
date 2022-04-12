@@ -1127,7 +1127,7 @@ void app_debug_isr_ringbuffer_flush(void)
 
 #endif /* DEBUG_ISR_ENABLE */
 
-void app_debug_dump(const void *data, int len, const char *message)
+void app_debug_dump(const void *data, int32_t len, const char *message)
 {
     if (m_lock_cb)
     {
@@ -1140,7 +1140,7 @@ void app_debug_dump(const void *data, int len, const char *message)
     int32_t i;
     
     char tmp[32];
-    sprintf(tmp, "%u", len);
+    sprintf(tmp, "%ld", len);
     put_string((char*)message);
     put_string(" : ");
     put_string(tmp);

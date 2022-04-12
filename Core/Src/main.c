@@ -100,6 +100,7 @@ int main(void)
     app_debug_init(sys_get_ms, NULL);
     app_debug_register_callback_print(rtt_tx);
     DEBUG_INFO("Application started\r\n");
+
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in freertos.c) */

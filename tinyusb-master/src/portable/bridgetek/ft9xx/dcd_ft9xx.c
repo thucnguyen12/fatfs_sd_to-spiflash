@@ -31,7 +31,7 @@
 
 #include "tusb_option.h"
 
-#if CFG_TUD_ENABLED && \
+#if TUSB_OPT_DEVICE_ENABLED && \
   (CFG_TUSB_MCU == OPT_MCU_FT90X || CFG_TUSB_MCU == OPT_MCU_FT93X) 
 
 #include <stdint.h>

@@ -28,13 +28,18 @@
  */
 
 #include "tusb_option.h"
+#include "device/dcd_attr.h"
 
-#if CFG_TUD_ENABLED && defined(TUP_USBIP_DWC2)
+#if TUSB_OPT_DEVICE_ENABLED && \
+    ( defined(DCD_ATTR_DWC2_STM32) || \
+      TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_GD32VF103) || \
+      TU_CHECK_MCU(OPT_MCU_EFM32GG, OPT_MCU_BCM2711, OPT_MCU_BCM2835) || \
+      TU_CHECK_MCU(OPT_MCU_BCM2837, OPT_MCU_XMC4000) )
 
 #include "device/dcd.h"
 #include "dwc2_type.h"
 
-#if defined(TUP_USBIP_DWC2_STM32)
+#if defined(DCD_ATTR_DWC2_STM32)
   #include "dwc2_stm32.h"
 #elif TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3)
   #include "dwc2_esp32.h"
@@ -456,11 +461,11 @@ static bool check_dwc2(dwc2_regs_t * dwc2)
   print_dwc2_info(dwc2);
 #endif
 
-  // For some reasons: GD32VF103 snpsid and all hwcfg register are always zero (skip it)
-#if !TU_CHECK_MCU(OPT_MCU_GD32VF103)
-  uint32_t const gsnpsid = dwc2->gsnpsid & GSNPSID_ID_MASK;
-  TU_ASSERT(gsnpsid == DWC2_OTG_ID || gsnpsid == DWC2_FS_IOT_ID || gsnpsid == DWC2_HS_IOT_ID);
-#endif
+//  // For some reasons: GD32VF103 snpsid and all hwcfg register are always zero (skip it)
+//#if !TU_CHECK_MCU(OPT_MCU_GD32VF103)
+//  uint32_t const gsnpsid = dwc2->gsnpsid & GSNPSID_ID_MASK;
+//  TU_ASSERT(gsnpsid == DWC2_OTG_ID || gsnpsid == DWC2_FS_IOT_ID || gsnpsid == DWC2_HS_IOT_ID);
+//#endif
 
   return true;
 }

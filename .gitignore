@@ -1,3 +1,9 @@
 ﻿MDK-ARM/USB_MSC_Test
 MDK-ARM/USB_MSC_Test.uvguix.huybk
 MDK-ARM/JLinkLog.txt
+*.d
+*.o
+Debug/app_debug/app_debug.su
+Debug
+tinyusb-master/docs
+tinyusb-master/.github

@@ -42,6 +42,8 @@
 // 3 : print info
 #if CFG_TUSB_DEBUG
 
+#include "app_debug.h"
+
 // Enum to String for debugging purposes
 #if CFG_TUSB_DEBUG >= 2
 extern char const* const tu_str_speed[];
@@ -54,7 +56,7 @@ void tu_print_mem(void const *buf, uint32_t count, uint8_t indent);
   extern int CFG_TUSB_DEBUG_PRINTF(const char *format, ...);
   #define tu_printf    CFG_TUSB_DEBUG_PRINTF
 #else
-  #define tu_printf    printf
+  #define tu_printf    DEBUG_RAW
 #endif
 
 static inline void tu_print_var(uint8_t const* buf, uint32_t bufsize)

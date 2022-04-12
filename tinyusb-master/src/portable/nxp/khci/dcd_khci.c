@@ -26,7 +26,7 @@
 
 #include "tusb_option.h"
 
-#if CFG_TUD_ENABLED && ( \
+#if TUSB_OPT_DEVICE_ENABLED && ( \
       ( CFG_TUSB_MCU == OPT_MCU_MKL25ZXX ) || ( CFG_TUSB_MCU == OPT_MCU_K32L2BXX ) \
     )
 

@@ -100,7 +100,7 @@ void board_init(void)
   nrfx_uarte_init(&_uart_id, &uart_cfg, NULL); //uart_handler);
 
   //------------- USB -------------//
-#if CFG_TUD_ENABLED
+#if TUSB_OPT_DEVICE_ENABLED
   // Priorities 0, 1, 4 (nRF52) are reserved for SoftDevice
   // 2 is highest for application
   NVIC_SetPriority(USBD_IRQn, 2);

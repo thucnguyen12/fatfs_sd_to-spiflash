@@ -103,34 +103,59 @@ static inline bool osal_mutex_unlock(osal_mutex_t mutex_hdl)
 //--------------------------------------------------------------------+
 #include "common/tusb_fifo.h"
 
+// extern to avoid including dcd.h and hcd.h
+#if TUSB_OPT_DEVICE_ENABLED
+extern void dcd_int_disable(uint8_t rhport);
+extern void dcd_int_enable(uint8_t rhport);
+#endif
+
+#if TUSB_OPT_HOST_ENABLED
+extern void hcd_int_disable(uint8_t rhport);
+extern void hcd_int_enable(uint8_t rhport);
+#endif
+
 typedef struct
 {
-  void (*interrupt_set)(bool);
-  tu_fifo_t ff;
+    uint8_t role; // device or host
+    tu_fifo_t ff;
 }osal_queue_def_t;
 
 typedef osal_queue_def_t* osal_queue_t;
 
-// _int_set is used as mutex in OS NONE (disable/enable USB ISR)
-#define OSAL_QUEUE_DEF(_int_set, _name, _depth, _type)    \
+// role device/host is used by OS NONE for mutex (disable usb isr) only
+#define OSAL_QUEUE_DEF(_role, _name, _depth, _type)       \
   uint8_t _name##_buf[_depth*sizeof(_type)];              \
   osal_queue_def_t _name = {                              \
-    .interrupt_set = _int_set,                            \
+    .role = _role,                                        \
     .ff = TU_FIFO_INIT(_name##_buf, _depth, _type, false) \
   }
 
 // lock queue by disable USB interrupt
 static inline void _osal_q_lock(osal_queue_t qhdl)
 {
-  // disable dcd/hcd interrupt
-  qhdl->interrupt_set(false);
+  (void) qhdl;
+
+#if TUSB_OPT_DEVICE_ENABLED
+  if (qhdl->role == OPT_MODE_DEVICE) dcd_int_disable(TUD_OPT_RHPORT);
+#endif
+
+#if TUSB_OPT_HOST_ENABLED
+  if (qhdl->role == OPT_MODE_HOST) hcd_int_disable(TUH_OPT_RHPORT);
+#endif
 }
 
 // unlock queue
 static inline void _osal_q_unlock(osal_queue_t qhdl)
 {
-  // enable dcd/hcd interrupt
-  qhdl->interrupt_set(true);
+  (void) qhdl;
+
+#if TUSB_OPT_DEVICE_ENABLED
+  if (qhdl->role == OPT_MODE_DEVICE) dcd_int_enable(TUD_OPT_RHPORT);
+#endif
+
+#if TUSB_OPT_HOST_ENABLED
+  if (qhdl->role == OPT_MODE_HOST) hcd_int_enable(TUH_OPT_RHPORT);
+#endif
 }
 
 static inline osal_queue_t osal_queue_create(osal_queue_def_t* qdef)

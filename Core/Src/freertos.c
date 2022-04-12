@@ -27,6 +27,7 @@
 /* USER CODE BEGIN Includes */
 #include "usbd_storage_if.h"
 #include "tusb.h"
+#include "app_debug.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,10 +53,11 @@ osThreadId defaultTaskHandle;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-
+osThreadId testTaskHandle;
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void const * argument);
+void StartTestTask(void const * argument);
 
 extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
@@ -104,11 +106,12 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 1024);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
+  osThreadDef(testTask, StartTestTask, osPriorityLow, 0, 128);
+  testTaskHandle = osThreadCreate(osThread(testTask), NULL);
   /* USER CODE END RTOS_THREADS */
 
 }
@@ -130,27 +133,31 @@ void StartDefaultTask(void const * argument)
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-    
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, GPIO_PIN_RESET); 
+
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_RESET);
-    
+
     uint32_t now = xTaskGetTickCount();
-    
+
     usbd_storage_flash_initialize();
-    
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, GPIO_PIN_SET); 
+
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, GPIO_PIN_SET);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_SET);
-    
-    vTaskDelayUntil(&now, 500); 
-    
+
+    vTaskDelay(500);
+
     GPIO_InitStruct.Pin = GPIO_PIN_11|GPIO_PIN_12;
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-    
+
+    osDelay(100);
+    MX_USB_DEVICE_Init();
+    DEBUG_INFO("tusb_init\r\n");
     tusb_init();
-//    MX_USB_DEVICE_Init();
+    DEBUG_INFO("tusb_init cplt\r\n");
+
   /* Infinite loop */
   for(;;)
   {
@@ -162,5 +169,11 @@ void StartDefaultTask(void const * argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
-
+void StartTestTask(void const * argument)
+{
+	for (;;)
+	{
+		osDelay(1000);
+	}
+}
 /* USER CODE END Application */

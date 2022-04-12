@@ -138,11 +138,11 @@ void board_init(void)
 #endif
 
   // todo probably set up device mode?
-#if CFG_TUD_ENABLED
+#if TUSB_OPT_DEVICE_ENABLED
 
 #endif
 
-#if CFG_TUH_ENABLED
+#if TUSB_OPT_HOST_ENABLED
   // set portfunc to host !!!
 #endif
 }

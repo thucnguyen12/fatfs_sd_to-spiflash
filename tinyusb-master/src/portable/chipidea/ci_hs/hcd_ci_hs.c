@@ -28,14 +28,13 @@
 
 // Chipidea Highspeed USB IP implement EHCI for host functionality
 
-#if CFG_TUH_ENABLED && \
+#if TUSB_OPT_HOST_ENABLED && \
     (CFG_TUSB_MCU == OPT_MCU_LPC18XX || CFG_TUSB_MCU == OPT_MCU_LPC43XX || CFG_TUSB_MCU == OPT_MCU_MIMXRT10XX)
 
 //--------------------------------------------------------------------+
 // INCLUDE
 //--------------------------------------------------------------------+
 #include "common/tusb_common.h"
-#include "host/hcd.h"
 #include "portable/ehci/ehci_api.h"
 #include "ci_hs_type.h"
 

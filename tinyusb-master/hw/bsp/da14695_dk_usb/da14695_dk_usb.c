@@ -73,7 +73,7 @@ void board_init(void)
   // 1ms tick timer
   SysTick_Config(SystemCoreClock / 1000);
 
-#if CFG_TUD_ENABLED
+#if TUSB_OPT_DEVICE_ENABLED
   // This board is USB powered there is no need to monitor
   // VBUS line.  Notify driver that VBUS is present.
   tusb_vbus_changed(true);

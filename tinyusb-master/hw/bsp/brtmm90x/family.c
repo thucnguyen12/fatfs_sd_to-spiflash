@@ -30,7 +30,7 @@
 #include <registers/ft900_registers.h>
 #include <ft900.h>
 
-#if CFG_TUD_ENABLED
+#if TUSB_OPT_DEVICE_ENABLED
 int8_t board_ft90x_vbus(void); // Board specific implementation of VBUS detection for USB device.
 extern void ft90x_usbd_pm_ISR(uint16_t pmcfg); // Interrupt handler for USB device power management
 #endif
@@ -152,14 +152,14 @@ void board_pm_ISR(void)
               MASK_SYS_PMCFG_HOST_RESUME_DEV)
     )
     {
-#if CFG_TUD_ENABLED
+#if TUSB_OPT_DEVICE_ENABLED
         ft90x_usbd_pm_ISR(pmcfg);
 #endif
     }
 #endif
 }
 
-#if CFG_TUD_ENABLED
+#if TUSB_OPT_DEVICE_ENABLED
 int8_t board_ft90x_vbus(void)
 {
 	return gpio_read(USBD_VBUS_DTC_PIN);

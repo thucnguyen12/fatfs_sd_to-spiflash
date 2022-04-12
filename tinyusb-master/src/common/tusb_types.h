@@ -223,13 +223,19 @@ enum {
 
 #define TUSB_DESC_CONFIG_POWER_MA(x)  ((x)/2)
 
+/// Device State TODO remove
+typedef enum
+{
+  TUSB_DEVICE_STATE_UNPLUG = 0  ,
+  TUSB_DEVICE_STATE_CONFIGURED  ,
+  TUSB_DEVICE_STATE_SUSPENDED   ,
+}tusb_device_state_t;
+
 typedef enum
 {
   XFER_RESULT_SUCCESS,
   XFER_RESULT_FAILED,
   XFER_RESULT_STALLED,
-  XFER_RESULT_TIMEOUT,
-  XFER_RESULT_INVALID
 }xfer_result_t;
 
 enum // TODO remove
@@ -259,7 +265,6 @@ typedef enum
 
 enum
 {
-  CONTROL_STAGE_IDLE,
   CONTROL_STAGE_SETUP,
   CONTROL_STAGE_DATA,
   CONTROL_STAGE_ACK

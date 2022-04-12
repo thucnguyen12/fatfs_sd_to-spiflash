@@ -45,9 +45,15 @@
 #endif
 
 // RHPort max operational speed can defined by board.mk
-// Default to max (auto) speed for MCU with internal HighSpeed PHY
+// Default to Highspeed for MCU with internal HighSpeed PHY (can be port specific), otherwise FullSpeed
 #ifndef BOARD_DEVICE_RHPORT_SPEED
-  #define BOARD_DEVICE_RHPORT_SPEED   OPT_MODE_DEFAULT_SPEED
+  #if TU_CHECK_MCU(OPT_MCU_LPC18XX, OPT_MCU_LPC43XX, OPT_MCU_MIMXRT10XX, OPT_MCU_NUC505) ||\
+      TU_CHECK_MCU(OPT_MCU_CXD56, OPT_MCU_SAMX7X, OPT_MCU_BCM2711) ||\
+      TU_CHECK_MCU(OPT_MCU_FT90X, OPT_MCU_FT93X)
+    #define BOARD_DEVICE_RHPORT_SPEED   OPT_MODE_HIGH_SPEED
+  #else
+    #define BOARD_DEVICE_RHPORT_SPEED   OPT_MODE_FULL_SPEED
+  #endif
 #endif
 
 // Device mode with rhport and speed defined by board.mk
